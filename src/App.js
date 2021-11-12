@@ -1,28 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import idl from './idl.json'
 import kp from './keypair.json'
 import { Connection, PublicKey, clusterApiUrl} from '@solana/web3.js';
 import {
   Program, Provider, web3
 } from '@project-serum/anchor';
-import { frmatAccount } from './utils/shortaccount'
+import { frmatAccount, postedByAccount } from './utils/displayAccounts'
 import {  checkIfWalletIsConnected, connectWallet} from './web3/phantom'
+import instagramlogo from './assets/instagramlogo.svg'
 import twitterLogo from './assets/twitter-logo.svg';
 import './App.css';
 
 // Constants
 const TWITTER_HANDLE = 'RoberVH';
 const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
-const TEST_GIFS = [
-	'https://i.gifer.com/OXsy.gif',
-	'https://c.tenor.com/w2QzDgHYr_oAAAAC/f1-ferrari.gif',
-	'https://c.tenor.com/Zn-KGhnMgJYAAAAd/daniil-kvyat.gif',
-  'https://c.tenor.com/C4NFji8QVkQAAAAd/f1-pit-stop.gif',
-	'https://i.gifer.com/7UvJ.gif'
-]
 
-// SystemProgram is a reference to the Solana runtime!
-const { SystemProgram, Keypair } = web3;
+// System Program is a reference to the Solana runtime!
+const { SystemProgram } = web3;
 
 const arr = Object.values(kp._keypair.secretKey)
 const secret = new Uint8Array(arr)
@@ -45,6 +39,56 @@ const App = () => {
   const [solana, setSolana] = useState(null)
   const [inputValue, setInputValue] = useState('')
   const [gifList, setGifList] = useState([]);
+
+// utility methods *******************************************************************
+
+const  getGifList = useCallback( async() => {
+  try {
+    const provider = getProvider();
+    const program = new Program(idl, programID, provider);
+    const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
+    
+    console.log("Got the account", account)
+    setGifList(account.gifList)
+    console.log("Gif list", account.gifList[0].userAddress.toString())
+
+
+
+  } catch (error) {
+    console.log("Error in getGifs: ", error)
+    setGifList(null);
+  }
+}, [])
+
+
+const getProvider = () => {
+  const connection = new Connection(network, opts.preflightCommitment);
+  const provider = new Provider(
+    connection, window.solana, opts.preflightCommitment,
+  );
+	return provider;
+}
+
+const createGifAccount = async () => {
+  try {
+    const provider = getProvider();
+    const program = new Program(idl, programID, provider);
+    console.log("ping")
+    await program.rpc.startStuffOff({
+      accounts: {
+        baseAccount: baseAccount.publicKey,
+        user: provider.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
+      },
+      signers: [baseAccount]
+    });
+    console.log("Created a new BaseAccount w/ address:", baseAccount.publicKey.toString())
+    await getGifList();
+
+  } catch(error) {
+    console.log("Error creating BaseAccount account:", error)
+  }
+}
 
 // on Load methods ************************************************************************
 
@@ -72,7 +116,7 @@ useEffect(() => {
     console.log('Fetching GIF list...');
     getGifList()
   }
-}, [walletAddress]);
+}, [walletAddress, getGifList]);
 
 // rendering Methods ************************************************************************
 
@@ -125,6 +169,10 @@ const renderConnectedContainer = () => {
           {gifList.map((item, index) => (
             <div className="gif-item" key={index}>
               <img alt='' src={item.gifLink} />
+              <div className="gif-bottom-container">
+                <label>{postedByAccount(item.userAddress.toString())}</label>
+                <button>Tip me</button>
+              </div>
             </div>
           ))}
         </div>
@@ -159,63 +207,24 @@ const sendGif = async () => {
     console.log("GIF sucesfully sent to program", inputValue)
 
     await getGifList();
+    setInputValue('');
   } catch (error) {
     console.log("Error sending GIF:", error)
   }
 };
 
-const getGifList = async() => {
-  try {
-    const provider = getProvider();
-    const program = new Program(idl, programID, provider);
-    const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
-    
-    console.log("Got the account", account)
-    setGifList(account.gifList)
 
-  } catch (error) {
-    console.log("Error in getGifs: ", error)
-    setGifList(null);
-  }
-}
-
-// utility methods
-const getProvider = () => {
-  const connection = new Connection(network, opts.preflightCommitment);
-  const provider = new Provider(
-    connection, window.solana, opts.preflightCommitment,
-  );
-	return provider;
-}
-
-const createGifAccount = async () => {
-  try {
-    const provider = getProvider();
-    const program = new Program(idl, programID, provider);
-    console.log("ping")
-    await program.rpc.startStuffOff({
-      accounts: {
-        baseAccount: baseAccount.publicKey,
-        user: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [baseAccount]
-    });
-    console.log("Created a new BaseAccount w/ address:", baseAccount.publicKey.toString())
-    await getGifList();
-
-  } catch(error) {
-    console.log("Error creating BaseAccount account:", error)
-  }
-}
   return (
     <div className="App">
         <div className="account">
             {walletAddress && frmatAccount(walletAddress)}
         </div>
-      <div className="container">
-        <div className="header-container">
-          <p className="header">🖼 Insta-blockchain</p>
+      <div >
+        <div >
+          <div className="App-logo">
+            <img src={instagramlogo}  alt="logo" />
+            <p className="header"> Insta-blockchain</p>
+          </div>  
           <p className="sub-text">
             Upload and watch your graphics in the blockchain ✨
           </p>

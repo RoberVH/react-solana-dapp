@@ -1,6 +1,10 @@
 import React from 'react'
 
 
+export const postedByAccount = (address) => {
+    const upAccount = address.toLowerCase()
+    return `Posted by: ${(upAccount.slice(0,5) + '...' + upAccount.slice(39,44))}`
+}
 
 export const shortAccount = (address) => {
     const upAccount = address.toLowerCase()
